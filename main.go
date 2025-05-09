@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -19,9 +22,55 @@ func getShellCommand() *exec.Cmd {
 		// PowerShellでPSReadlineの問題があるため、cmdを使用
 		cmd = exec.Command("cmd.exe")
 	default: // Unix系OS（Linux、macOS）
-		cmd = exec.Command("/bin/bash", "-i")
+		// /etc/shellsから優先順位に基づいてシェルを選択
+		shellPriority := []string{"zsh", "fish", "ksh", "tcsh", "bash", "sh"}
+		availableShells := readAvailableShells()
+		selectedShell := "/bin/sh" // デフォルト
+
+		for _, shell := range shellPriority {
+			for _, availShell := range availableShells {
+				if strings.HasSuffix(availShell, "/"+shell) {
+					selectedShell = availShell
+					log.Printf("選択されたシェル: %s", selectedShell)
+					return exec.Command(selectedShell, "-i")
+				}
+			}
+		}
+		cmd = exec.Command(selectedShell, "-i")
 	}
 	return cmd
+}
+
+// readAvailableShells は /etc/shells からシェルのパスを読み込みます
+func readAvailableShells() []string {
+	shells := []string{}
+
+	// Windowsの場合は早期リターン
+	if runtime.GOOS == "windows" {
+		return shells
+	}
+
+	file, err := os.Open("/etc/shells")
+	if err != nil {
+		log.Printf("/etc/shellsの読み込みに失敗: %v", err)
+		return shells
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// コメント行や空行をスキップ
+		if len(line) > 0 && !strings.HasPrefix(line, "#") {
+			shells = append(shells, line)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("/etc/shellsの読み込み中にエラー: %v", err)
+	}
+
+	return shells
 }
 
 // handleConnection は、クライアント接続ごとに呼び出される関数です
