@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/creack/pty"
 )
 
 // getShellCommand は、OSに応じて適切なシェルコマンドを返します
@@ -81,6 +83,52 @@ func handleConnection(conn net.Conn) {
 	// シェルプロセスを起動
 	cmd := getShellCommand()
 
+	// Windowsの場合はPTYを使用しない（Windowsではptyが完全にサポートされていない）
+	if runtime.GOOS == "windows" {
+		handleWindowsConnection(conn, cmd)
+		return
+	}
+
+	// PTYを作成して、シェルプロセスと接続
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		log.Printf("ptyの作成に失敗: %v", err)
+		return
+	}
+	// 必ず閉じるようにする
+	defer ptmx.Close()
+
+	// シェルの出力をクライアントに送信し、クライアントの入力をシェルに送信する
+	var wg sync.WaitGroup
+	wg.Add(2) // 2つのゴルーチンを待つ
+
+	// PTYの出力をクライアントに送信
+	go func() {
+		defer wg.Done()
+		io.Copy(conn, ptmx)
+		log.Printf("pty出力の転送が終了しました: %s", conn.RemoteAddr())
+	}()
+
+	// クライアントの入力をPTYに送信
+	go func() {
+		defer wg.Done()
+		io.Copy(ptmx, conn)
+		log.Printf("入力の転送が終了しました: %s", conn.RemoteAddr())
+	}()
+
+	// ゴルーチンの終了を待つ
+	wg.Wait()
+
+	// シェルプロセスの終了を待つ
+	if err := cmd.Wait(); err != nil {
+		log.Printf("シェルプロセスが終了しました: %v", err)
+	}
+
+	log.Printf("接続を終了しました: %s", conn.RemoteAddr())
+}
+
+// handleWindowsConnection はWindows向けの接続処理を行います（PTYを使用しない）
+func handleWindowsConnection(conn net.Conn, cmd *exec.Cmd) {
 	// シェルの標準入力を取得するためのパイプを作成
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -142,8 +190,6 @@ func handleConnection(conn net.Conn) {
 	if err := cmd.Wait(); err != nil {
 		log.Printf("シェルプロセスが終了しました: %v", err)
 	}
-
-	log.Printf("接続を終了しました: %s", conn.RemoteAddr())
 }
 
 func main() {
