@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -96,8 +98,12 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
+	// コマンドライン引数でポート番号を指定できるようにする
+	port := flag.Int("p", 4444, "サーバーがListenするポート番号")
+	flag.Parse()
+
 	// 接続先のアドレスとポート
-	listenAddr := "0.0.0.0:4444" // 全てのインターフェースの4444ポートでリッスン
+	listenAddr := fmt.Sprintf("0.0.0.0:%d", *port) // 指定されたポートでリッスン
 
 	// TCPリスナーを作成
 	listener, err := net.Listen("tcp", listenAddr)
