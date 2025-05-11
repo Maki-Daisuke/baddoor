@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync"
 
 	"github.com/creack/pty"
 )
@@ -98,26 +97,19 @@ func handleConnection(conn net.Conn) {
 	// 必ず閉じるようにする
 	defer ptmx.Close()
 
-	// シェルの出力をクライアントに送信し、クライアントの入力をシェルに送信する
-	var wg sync.WaitGroup
-	wg.Add(2) // 2つのゴルーチンを待つ
-
-	// PTYの出力をクライアントに送信
-	go func() {
-		defer wg.Done()
-		io.Copy(conn, ptmx)
-		log.Printf("pty出力の転送が終了しました: %s", conn.RemoteAddr())
-	}()
-
 	// クライアントの入力をPTYに送信
 	go func() {
-		defer wg.Done()
 		io.Copy(ptmx, conn)
-		log.Printf("入力の転送が終了しました: %s", conn.RemoteAddr())
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			log.Printf("stdin pipeの作成に失敗: %v", err)
+			return
+		}
+		stdin.Close()
 	}()
 
-	// ゴルーチンの終了を待つ
-	wg.Wait()
+	// シェルの出力をクライアントに送信
+	io.Copy(conn, ptmx)
 
 	// シェルプロセスの終了を待つ
 	if err := cmd.Wait(); err != nil {
@@ -156,35 +148,20 @@ func handleWindowsConnection(conn net.Conn, cmd *exec.Cmd) {
 		return
 	}
 
-	// シェルの出力をクライアントに送信し、クライアントの入力をシェルに送信する
-	var wg sync.WaitGroup
-	wg.Add(3) // 3つのゴルーチンを待つ
-
-	// シェルの標準出力をクライアントに送信
+	// クライアントの入力をシェルの標準入力に送信
 	go func() {
-		defer wg.Done()
-		io.Copy(conn, stdout)
-		log.Printf("標準出力の転送が終了しました: %s", conn.RemoteAddr())
+		io.Copy(stdin, conn)
+		stdin.Close()
 	}()
 
 	// シェルの標準エラー出力をクライアントに送信
 	go func() {
-		defer wg.Done()
 		io.Copy(conn, stderr)
-		log.Printf("標準エラー出力の転送が終了しました: %s", conn.RemoteAddr())
+		conn.Close()
 	}()
 
-	// クライアントの入力をシェルの標準入力に送信
-	go func() {
-		defer wg.Done()
-		io.Copy(stdin, conn)
-		// クライアントが接続を閉じたらシェルの標準入力も閉じる
-		stdin.Close()
-		log.Printf("標準入力の転送が終了しました: %s", conn.RemoteAddr())
-	}()
-
-	// ゴルーチンの終了を待つ
-	wg.Wait()
+	// シェルの標準出力をクライアントに送信
+	io.Copy(conn, stdout)
 
 	// シェルプロセスの終了を待つ
 	if err := cmd.Wait(); err != nil {
