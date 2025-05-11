@@ -25,7 +25,7 @@ BadDoorは、TCP接続を受け付け、接続が確立されるとリモート�
 # プログラムをビルド
 git clone https://github.com/Maki-Daisuke/baddoor.git
 cd baddoor
-go build -o baddoor main.go
+go build -o baddoor cmd/baddoor/main.go
 
 # プログラムを実行（デフォルトポート4444を使用）
 ./baddoor
@@ -38,27 +38,29 @@ go build -o baddoor main.go
 
 ```bash
 # デフォルトポート4444を使用
-go run main.go
+go run cmd/baddoor/main.go
 
 # 特定のポート番号（例：8080）を指定
-go run main.go -p 8080
+go run cmd/baddoor/main.go -p 8080
 ```
 
 これにより、サーバーは指定されたポート（デフォルトは4444）でTCP接続の受付を開始します。
 
 ### クライアント側
 
-サーバーに接続するには、telnetやnc（netcat）などのツールを使用できます：
+クライアントプログラムをビルドします：
 
 ```bash
-telnet <サーバーIP> <ポート番号>
+go build -o badclient cmd/badclient/main.go
 ```
 
-または
+サーバーに接続するには、badclientを使用します。パスワードは`-p`オプションで指定できます。
 
 ```bash
-nc <サーバーIP> <ポート番号>
+badclient -p <パスワード> <サーバーIP>:<ポート番号>
 ```
+
+パスワードが指定されていない場合、プロンプトが表示されます。
 
 接続が確立されると、リモートシェルセッションが開始され、コマンドを実行できるようになります。
 
@@ -66,7 +68,6 @@ nc <サーバーIP> <ポート番号>
 
 このプログラムは教育目的または信頼性の高いネットワーク内での使用のみを想定しています。以下のセキュリティ上の問題に注意してください：
 
-1. **認証機能の欠如**: プログラムは認証メカニズムを実装していないため、ネットワークに接続できる誰でもシェルアクセスを取得できます
 2. **暗号化の欠如**: データは平文で送受信されるため、盗聴のリスクがあります
 3. **権限の問題**: プログラムは実行ユーザーの権限でシェルを起動するため、適切な権限管理が必要です
 
