@@ -19,12 +19,11 @@ func main() {
 	flag.StringVar(&password, "p", "", "admin password")
 	flag.Parse()
 
-	if len(os.Args) < 2 {
+	if flag.NArg() < 1 {
 		fmt.Println("Usage: badclient [-p <password>] <host:port>")
 		os.Exit(1)
 	}
-	host := os.Args[1]
-
+	host := flag.Arg(0)
 
 	// Connect to baddoor server
 	conn, err := net.Dial("tcp", host)
