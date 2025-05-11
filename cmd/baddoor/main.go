@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/creack/pty"
+	"github.com/msteinert/pam"
 )
 
 // getShellCommand は、OSに応じて適切なシェルコマンドを返します
@@ -64,7 +65,23 @@ func readAvailableShells() []string {
 // handleConnection は、クライアント接続ごとに呼び出される関数です
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	log.Printf("接続を受け付けました: %s", conn.RemoteAddr())
+
+	// クライアントからパスワードを読み込む
+	fmt.Fprint(conn, "Input admin password:")
+	reader := bufio.NewReader(conn)
+	password, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("パスワードの読み込みに失敗: %v", err)
+		return
+	}
+	password = strings.TrimSpace(password)
+
+	// PAM認証
+	err = pamAuthenticate("admin", password)
+	if err != nil {
+		fmt.Sprintln(conn, "Authentication failed.")
+		return
+	}
 
 	// シェルプロセスを起動
 	cmd := getShellCommand()
@@ -98,6 +115,30 @@ func handleConnection(conn net.Conn) {
 	}
 
 	log.Printf("接続を終了しました: %s", conn.RemoteAddr())
+}
+
+// pamAuthenticate は、PAMを使用してユーザーを認証します
+func pamAuthenticate(username, password string) error {
+	transaction, err := pam.StartFunc("login", username, func(s pam.Style, msg string) (string, error) {
+		switch s {
+		case pam.PromptEchoOff:
+			return password, nil
+		case pam.PromptEchoOn:
+			return password, nil
+		case pam.ErrorMsg, pam.TextInfo:
+			fmt.Println(msg)
+			return "", nil
+		}
+		panic("unrecognized PAM message style")
+	})
+
+	if err != nil {
+		return fmt.Errorf("PAM Start failed: %w", err)
+	}
+	if err = transaction.Authenticate(0); err != nil {
+		return fmt.Errorf("Authentication failed: %w", err)
+	}
+	return nil
 }
 
 func main() {
