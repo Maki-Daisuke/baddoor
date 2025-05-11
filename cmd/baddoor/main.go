@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/creack/pty"
@@ -17,39 +16,27 @@ import (
 
 // getShellCommand は、OSに応じて適切なシェルコマンドを返します
 func getShellCommand() *exec.Cmd {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		// PowerShellでPSReadlineの問題があるため、cmdを使用
-		cmd = exec.Command("cmd.exe")
-	default: // Unix系OS（Linux、macOS）
-		// /etc/shellsから優先順位に基づいてシェルを選択
-		shellPriority := []string{"zsh", "fish", "ksh", "tcsh", "bash", "sh"}
-		availableShells := readAvailableShells()
-		selectedShell := "/bin/sh" // デフォルト
+	// /etc/shellsから優先順位に基づいてシェルを選択
+	shellPriority := []string{"zsh", "fish", "ksh", "tcsh", "bash", "sh"}
+	availableShells := readAvailableShells()
+	selectedShell := "/bin/sh" // デフォルト
 
-		for _, shell := range shellPriority {
-			for _, availShell := range availableShells {
-				if strings.HasSuffix(availShell, "/"+shell) {
-					selectedShell = availShell
-					log.Printf("選択されたシェル: %s", selectedShell)
-					return exec.Command(selectedShell, "-i")
-				}
+	for _, shell := range shellPriority {
+		for _, availShell := range availableShells {
+			if strings.HasSuffix(availShell, "/"+shell) {
+				selectedShell = availShell
+				log.Printf("選択されたシェル: %s", selectedShell)
+				return exec.Command(selectedShell, "-i")
 			}
 		}
-		cmd = exec.Command(selectedShell, "-i")
 	}
+	cmd := exec.Command(selectedShell, "-i")
 	return cmd
 }
 
 // readAvailableShells は /etc/shells からシェルのパスを読み込みます
 func readAvailableShells() []string {
 	shells := []string{}
-
-	// Windowsの場合は早期リターン
-	if runtime.GOOS == "windows" {
-		return shells
-	}
 
 	file, err := os.Open("/etc/shells")
 	if err != nil {
@@ -82,12 +69,6 @@ func handleConnection(conn net.Conn) {
 	// シェルプロセスを起動
 	cmd := getShellCommand()
 
-	// Windowsの場合はPTYを使用しない（Windowsではptyが完全にサポートされていない）
-	if runtime.GOOS == "windows" {
-		handleWindowsConnection(conn, cmd)
-		return
-	}
-
 	// PTYを作成して、シェルプロセスと接続
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
@@ -117,56 +98,6 @@ func handleConnection(conn net.Conn) {
 	}
 
 	log.Printf("接続を終了しました: %s", conn.RemoteAddr())
-}
-
-// handleWindowsConnection はWindows向けの接続処理を行います（PTYを使用しない）
-func handleWindowsConnection(conn net.Conn, cmd *exec.Cmd) {
-	// シェルの標準入力を取得するためのパイプを作成
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		log.Printf("stdin pipeの作成に失敗: %v", err)
-		return
-	}
-
-	// シェルの標準出力を取得するためのパイプを作成
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Printf("stdout pipeの作成に失敗: %v", err)
-		return
-	}
-
-	// シェルの標準エラー出力を取得するためのパイプを作成
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Printf("stderr pipeの作成に失敗: %v", err)
-		return
-	}
-
-	// シェルプロセスを起動
-	if err := cmd.Start(); err != nil {
-		log.Printf("シェルの起動に失敗: %v", err)
-		return
-	}
-
-	// クライアントの入力をシェルの標準入力に送信
-	go func() {
-		io.Copy(stdin, conn)
-		stdin.Close()
-	}()
-
-	// シェルの標準エラー出力をクライアントに送信
-	go func() {
-		io.Copy(conn, stderr)
-		conn.Close()
-	}()
-
-	// シェルの標準出力をクライアントに送信
-	io.Copy(conn, stdout)
-
-	// シェルプロセスの終了を待つ
-	if err := cmd.Wait(); err != nil {
-		log.Printf("シェルプロセスが終了しました: %v", err)
-	}
 }
 
 func main() {
