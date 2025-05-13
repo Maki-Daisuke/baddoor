@@ -1,0 +1,42 @@
+name: Build ARM64 and release .deb for LS700D series
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ARM64 .deb from Ubuntu 18.04
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --tag baddoor_builder \
+            --load \
+            .
+
+      - name: Extract .deb from container
+        run: |
+          docker create --name temp_container baddoor_builder
+          docker cp temp_container:/app/baddoor.deb ./baddoor_${{ github.ref_name }}_arm64.deb
+          docker rm temp_container
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: baddoor_${{ github.ref_name }}_arm64.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
