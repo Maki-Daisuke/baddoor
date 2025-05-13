@@ -9,9 +9,7 @@ This package is not supported by the author.Use at your own risk.
 
 - TCP接続を通じたリモートシェルアクセス
 - 複数クライアントの同時接続処理
-- OSに応じた適切なシェルの選択
-  - Windows: cmd.exeを使用
-  - UNIX系OS: `/etc/shells`から以下の優先順位でシェルを選択
+- `/etc/shells`から以下の優先順位でシェルを選択
     1. zsh
     2. fish
     3. ksh
