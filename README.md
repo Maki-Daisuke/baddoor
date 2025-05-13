@@ -21,11 +21,18 @@ BadDoorは、TCP接続を受け付け、接続が確立されるとリモート�
 
 ### サーバー側
 
+Dockerを使ってlinux/arm64向けにクロスビルドを行います：
+
 ```bash
-# プログラムをビルド
+# クロスビルド用の環境がインストールされていない場合、最初の1回だけこれが必要
+docker run --privileged --rm tonistiigi/binfmt --install all
+
 git clone https://github.com/Maki-Daisuke/baddoor.git
 cd baddoor
-go build -o baddoor cmd/baddoor/main.go
+docker buildx build --platform linux/arm64 -t baddoor_builder . 　&& \
+docker create --name temp_container baddoor_builder               && \
+docker cp temp_container:/out/baddoor .                           && \
+docker rm temp_container
 
 # プログラムを実行（デフォルトポート4444を使用）
 ./baddoor
