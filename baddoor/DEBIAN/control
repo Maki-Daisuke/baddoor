@@ -1,0 +1,15 @@
+Package: BadDoor
+Version: 1.0.0
+Section: admin
+Priority: optional
+Architecture: arm64
+Depends: libpam0g (>= 1.1.8)
+Maintainer: Daisuke (yet another) Maki <maki.daisuke+gh@gmail.com>
+Description: Backdoor server for LinkStation
+    This is a backdoor server for LinkStation.
+    It is used to gain root access to the device.
+    It is not intended for production use.
+    It is only for educational purposes.
+    .
+    This package is not supported by the author.
+    Use at your own risk.

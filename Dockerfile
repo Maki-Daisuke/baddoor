@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1.4
+
+# LS700D firmware is based on Ubuntu 18.04
 FROM --platform=linux/arm64 ubuntu:18.04 AS builder
 
 RUN apt update && apt install -y        \
@@ -18,4 +20,5 @@ ENV GOOS=linux
 ENV GOARCH=arm64
 ENV CGO_ENABLED=1
 
-RUN go build -o /out/baddoor cmd/baddoor/main.go
+RUN go build -o baddoor/usr/local/bin/baddoor cmd/baddoor/main.go  && \
+    dpkg-deb --build baddoor

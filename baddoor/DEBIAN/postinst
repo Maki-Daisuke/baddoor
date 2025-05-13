@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+systemctl enable baddoor.service
+systemctl start baddoor.service
+
+exit 0

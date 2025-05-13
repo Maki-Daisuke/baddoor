@@ -1,6 +1,9 @@
-# BadDoor - リモートシェルアクセスサーバー
+# BadDoor - Backdoor server for LinkStation (LS700D series)
 
-BadDoorは、TCP接続を受け付け、接続が確立されるとリモートクライアントが利用できるシェルを子プロセスとして起動するGo言語で書かれたサーバープログラムです。シェルの標準入出力と標準エラー出力は、確立されたTCP接続に直接ストリーミングされます。
+This is a really simple backdoor server for LinkStation. It is used to gain root shell access to the device.
+It is not intended for production use. It is only for educational purposes.
+
+This package is not supported by the author.Use at your own risk.
 
 ## 主な機能
 
@@ -29,12 +32,15 @@ docker run --privileged --rm tonistiigi/binfmt --install all
 
 git clone https://github.com/Maki-Daisuke/baddoor.git
 cd baddoor
-docker buildx build --platform linux/arm64 -t baddoor_builder . 　&& \
-docker create --name temp_container baddoor_builder               && \
-docker cp temp_container:/out/baddoor .                           && \
-docker rm temp_container
+docker buildx build --platform linux/arm64 -t baddoor_builder .  && \
+docker create --name temp_container baddoor_builder              && \
+docker cp temp_container:/app/baddoor.deb .                      ;  \
+docker rm temp_container  &&  docker rmi baddoor_builder
 
-# プログラムを実行（デフォルトポート4444を使用）
+# プログラムのインストール（systemdに登録される）
+dpkg -i baddoor.deb
+
+# プログラムの手動実行（デフォルトポート4444を使用）
 ./baddoor
 
 # 特定のポート番号（例：8080）を指定して実行
