@@ -34,7 +34,12 @@ docker buildx build --platform linux/arm64 -t baddoor_builder .  && \
 docker create --name temp_container baddoor_builder              && \
 docker cp temp_container:/app/baddoor.deb .                      ;  \
 docker rm temp_container  &&  docker rmi baddoor_builder
+```
 
+作成されたdebファイルをLinkStationにコピーしてインストールしてください。
+LinkStationでのコマンドの実行は [ACP Commander](https://github.com/elchild/acp-commander/tree/discoveryport) 等を使用してください。
+
+```bash
 # プログラムのインストール（systemdに登録される）
 dpkg -i baddoor.deb
 
